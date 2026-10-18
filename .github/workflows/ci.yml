@@ -136,6 +136,8 @@ jobs:
       # No `|| true`. The workflow this replaced swallowed the exit status, so
       # a coverage threshold that had never been met also never failed a build.
       # Threshold and the test-support exclusion are in mix.exs.
+      # Keyed on the top cell's flag, never on a version string: gated on
+      # '1.20.2' while the top cell ran 1.20.3, this step silently never ran.
       - name: Run tests with coverage
-        if: matrix.elixir == '1.20.2'
+        if: matrix.tracks_pin
         run: mix test --cover
