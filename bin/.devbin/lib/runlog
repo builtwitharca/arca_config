@@ -54,13 +54,13 @@ _create_exclusive() {
 #
 # It exists so `write_errors_file` can exclude devbin's own annotations from the
 # extraction grammars BY CONSTRUCTION, and that is not caution for its own sake.
-# Two of the six grammars print on UNANCHORED patterns -- credo's `\[[A-Z]\] `
+# Some of the grammars print on UNANCHORED patterns -- credo's `\[[A-Z]\] `
 # and xcodebuild's `: error: ` -- while a recorded command line is arbitrary text
 # out of a project's config. Credo's match also sets `inblock`, so one unlucky
 # argument would drag the entire remaining log into `.errors` and seal a verdict
 # assembled from the tool's ordinary output. A wrong seal is the single failure
-# this subsystem cannot detect after the fact (intent/llm/MODULES.md), so the
-# exclusion is structural rather than a matter of picking a prefix and hoping.
+# this subsystem cannot detect after the fact, so the exclusion is structural
+# rather than a matter of picking a prefix and hoping.
 # Driven red once with the filter removed, and the verdict duly filled with
 # devbin's own output -- the evidence is quoted in issue 0025.
 #
@@ -90,7 +90,7 @@ _DEVBIN_INVOKE_TAG='devbin| '
 # INHERITED BY A CHILD DEVBIN, EXCEPT ACROSS A WITNESS BOUNDARY.
 # This paragraph used to say the id was NOT EXPORTED and that a child got its
 # own, while `bin/devbin` exported it and tests/unit/runlog.bats held a child to
-# its parent's id: two answers. One estate patched its vendored copy to match
+# its parent's id: two answers. One project patched its vendored copy to match
 # the comment. Inheritance is the answer -- fullcycle spawning clean, build
 # and test is one thing the operator asked for -- except where a non-witness run
 # starts a witness one. `bin/devbin` owns the rule; this paragraph only reports it.
@@ -128,12 +128,13 @@ run_id_mint() {
 
 # inflight_marker -- the single line `open_run_log` seeds a fresh `.errors` with.
 #
-# ONE HOME, because there are now two callers and they are in different files:
-# `open_run_log` writes it, and `run_all`'s disagreement arm (lib/resolve) reads
-# it to tell "returned 0 without sealing a verdict" from "returned 0 while its
-# seal records a failure". Those send a reader to different places -- one to a
-# killed or timed-out gate, the other to a test that actually failed -- and one
-# message for two causes is how a guard gets ignored.
+# ONE HOME, because a writer and a reader both need it:
+# `open_run_log` writes it, and `seal_is_inflight` reads it, for
+# seal_disagreement_reason, to tell "returned 0 without sealing a verdict"
+# from "returned 0 while its seal records a failure". Those send a reader to
+# different places -- one to a killed or timed-out gate, the other to a test
+# that actually failed -- and one message for two causes is how a guard gets
+# ignored.
 #
 # A copy of this string in the reader would drift in exactly the silent
 # direction: reword the marker here and the reader classifies every UNSEALED run
@@ -153,10 +154,37 @@ seal_is_inflight() {
   [ "$(cat "$1")" = "$(inflight_marker)" ]
 }
 
+# seal_state <errors-path> -- what a run's .errors companion holds, as one word:
+#
+#   absent      no file there
+#   unreadable  a file there that this process cannot read
+#   green       empty: a COMPLETED green run (write_errors_file's invariant)
+#   inflight    the marker open_run_log seeds: the run never sealed
+#   failed      anything else: a sealed failure
+#
+# THE ONE CLASSIFIER OF A SEAL (ST0011). seal_verdict reads it to say what a
+# record of a commit says, and seal_disagreement_reason to say why a run's
+# return code and its seal contradict each other: two ladders over the same
+# file had come to encode the same five answers twice, and the next state one
+# of them learned would have been the state the other missed.
+seal_state() {
+  if [ ! -e "$1" ]; then
+    printf 'absent\n'
+  elif [ ! -r "$1" ]; then
+    printf 'unreadable\n'
+  elif [ ! -s "$1" ]; then
+    printf 'green\n'
+  elif seal_is_inflight "$1"; then
+    printf 'inflight\n'
+  else
+    printf 'failed\n'
+  fi
+}
+
 # seal_disagreement_reason <rc> <errors> -- WHY this run's return code and its
 # seal contradict each other, or NOTHING AT ALL when they agree.
 #
-# ONE HOME, TWO CALLERS, AND THE SECOND CALLER IS THE WHOLE POINT.
+# ONE HOME, AND THE CALLER IN print_run_verdict IS THE WHOLE POINT.
 # `seal_disagreements` reads the ledger, and the ledger is exported by `run_all`
 # and by nothing else -- so a check living only there sees `<cmd> all` and misses
 # every single-gate invocation. `print_run_verdict` runs on EVERY kept run. The
@@ -176,7 +204,7 @@ seal_is_inflight() {
 #
 # SILENCE MEANS THEY AGREE. Callers test for empty output rather than for a
 # status, so there is one obvious falsy value and no exit-code convention to
-# remember at two call sites.
+# remember at every call site.
 seal_disagreement_reason() {
   local rc="$1" errors="${2:-}"
   # A NON-ZERO rc IS NEVER A DISAGREEMENT. A red run is SUPPOSED to seal
@@ -186,17 +214,19 @@ seal_disagreement_reason() {
   # Empty `errors` is the keep_log=0 spool path, where no companion is kept at
   # all -- documented at open_run_log. So `--no-out` runs stay silent here by
   # construction rather than by a second flag being threaded down.
-  [ -n "$errors" ] && [ -s "$errors" ] || return 0
+  [ -n "$errors" ] || return 0
   # A NON-EMPTY SEAL IS NOT THE SAME AS A FAILURE. open_run_log SEEDS the file,
   # so non-empty covers two states: a sealed failure, and a gate that never
   # sealed at all. Same defect class -- the rc and the seal disagree -- but they
   # send a reader to different places, and one message for both would send them
-  # hunting for a failing test that does not exist.
-  if seal_is_inflight "$errors"; then
-    printf 'returned 0 WITHOUT SEALING A VERDICT -- killed, timed out, or the seal could not be written\n'
-  else
-    printf 'returned 0 while its seal RECORDS A FAILURE\n'
-  fi
+  # hunting for a failing test that does not exist. An absent seal is silent
+  # here, as it always was: no companion contradicts nothing.
+  case "$(seal_state "$errors")" in
+    inflight) printf 'returned 0 WITHOUT SEALING A VERDICT -- killed, timed out, or the seal could not be written\n' ;;
+    failed) printf 'returned 0 while its seal RECORDS A FAILURE\n' ;;
+    unreadable) printf 'returned 0 while its seal CANNOT BE READ, so nothing says it was green\n' ;;
+  esac
+  return 0
 }
 
 # open_run_log <keep_log 0|1> <out_dir> <suffix> -- set the `log` and `errors`
@@ -250,10 +280,11 @@ open_run_log() {
     # ordinary single-run case, which is what the ladder was for.
     #
     # The counter rung is NOT `$$`. A subshell inherits its parent's `$$` in
-    # bash (BASHPID would say otherwise, but that is bash 4 and D9 rules it
-    # out), so several concurrent gates spawned from one script all produce the
-    # same "unique" name and all but one fail to create it. Counting up is
-    # portable, terminates, and keeps the naming convention that purge globs on.
+    # bash (BASHPID would say otherwise, but that is bash 4, and the bash 3.2
+    # target excludes it), so several concurrent gates spawned from one script
+    # all produce the same "unique" name and all but one fail to create it.
+    # Counting up is portable, terminates, and keeps the naming convention that
+    # purge globs on.
     log=""
     # `date -u` for the seconds too. Seconds are zone-invariant so this is not a
     # correctness fix; it is so the whole stamp has ONE stated provenance and a
@@ -363,13 +394,42 @@ note_promotion() {
   return 0
 }
 
+# note_signal <log> <text> -- the sentence saying a signal stopped the gated run
+# (issue 0297), appended to the run's log before the seal. Tagged, as every
+# line devbin writes into a log is, so no grammar reads it as the tool's: a red
+# run with nothing parseable seals its log tail, which this lands in, near the
+# end. Nothing goes to the terminal here: the signal may have ended whatever
+# reads it. A failed append warns; the seal names the signal either way
+# (seal_signal).
+note_signal() {
+  printf '%s%s\n' "$_DEVBIN_INVOKE_TAG" "$2" >>"$1" ||
+    warn "could not record in $1 that a signal stopped the run -- the .out log will not say why it ended"
+  return 0
+}
+
+# seal_signal <errors> <text> -- the same sentence added to a red seal that
+# does not carry it yet, once write_errors_file has sealed the run (issue
+# 0297). A grammar that finds failure blocks seals those and not the log tail,
+# and a run a signal stopped must say so in its seal whatever its grammar.
+# ONLY A SEAL ALREADY RED IS TOUCHED: an append to an empty seal would turn a
+# green red, and one to the in-flight marker would make a run left unsealed
+# read as sealed. An append never empties the seal, so no reader sees it green
+# while it is made.
+seal_signal() {
+  [ -n "$1" ] && [ "$(seal_state "$1")" = failed ] || return 0
+  ! grep -qF -- "$2" "$1" 2>/dev/null || return 0
+  printf '%s\n' "$2" >>"$1" ||
+    warn "could not name the signal in $1 -- the seal is red, and only the .out log says why"
+  return 0
+}
+
 # note_invocation <log> <source> [argv...] -- record WHAT is about to run.
 #
 # `run_gate` teed the tool's output and never recorded what produced it, so a
 # gate that died on its own ARGUMENTS sealed the tool's complaint about them and
-# nothing else. Measured (issue 0025): a `run:` was
-# read while another session had the file mid-edit, `variant=Designed for iPad`
-# word-split into three arguments, and the seal read
+# nothing else. Measured (issue 0025): a `run:` was read while the file was
+# mid-edit, `variant=Designed for iPad` word-split into three arguments, and
+# the seal read
 #
 #   xcodebuild: error: Unknown build action 'for'
 #
@@ -402,8 +462,31 @@ note_invocation() {
     # field a reader should group on; the stamp in the filename is for reading,
     # not for keying.
     printf '%s  run: %s\n' "$_DEVBIN_INVOKE_TAG" "$(run_identity)"
+    # WHEN, TO THE SECOND, IN UTC, and run_gate writes `end:` beside the commit
+    # at close (note_end), so a kept run says how long it took (ST0011): the
+    # file name's stamp is the minute it opened, and no log carried an end.
+    printf '%s  start: %s\n' "$_DEVBIN_INVOKE_TAG" "$(runlog_clock)"
+    # WHICH HOST, AS INFORMATION ONLY, NEVER A KEY (ST0011): a record is keyed
+    # on the commit and the platform, and two machines on one OS build and
+    # bash share a record by design. The line answers a person reading a pair
+    # a remote leg copied back, not a reader deciding what a record stands for.
+    printf '%s  host: %s\n' "$_DEVBIN_INVOKE_TAG" "$(uname -n 2>/dev/null || printf 'unknown')"
+    # WHICH COMMIT THE TREE STOOD ON (ST0011), in git_head_identity's
+    # words, the one producer of that claim: the full sha, `+dirty` when git
+    # status lists anything, `+unreadable` when it cannot say, `unknown` outside
+    # a checkout. note_commit_close writes it again before the seal, and
+    # seal_verdict remembers a green for a commit only when the two agree and
+    # both are clean.
+    printf '%s  commit: %s\n' "$_DEVBIN_INVOKE_TAG" "$(git_head_identity "${PROJECT_ROOT:-.}")"
     [ -z "$source" ] ||
       printf '%s  from: %s\n' "$_DEVBIN_INVOKE_TAG" "$source"
+    # WHERE IT RAN, when that is not the project root (issue 0225): a cargo
+    # line run at `project.cargo_root` says so, and a run at the root writes
+    # what it always wrote. $PWD, not `pwd -P`: every runner enters the
+    # directory by `cd` from PROJECT_ROOT as the dispatcher spelled it, so the
+    # two match at the root whatever links lie under it.
+    [ -z "${PROJECT_ROOT:-}" ] || [ "$PWD" = "$PROJECT_ROOT" ] ||
+      printf '%s  at: %s\n' "$_DEVBIN_INVOKE_TAG" "$PWD"
     for a in "$@"; do
       printf '%s  argv[%d]: %s\n' "$_DEVBIN_INVOKE_TAG" "$i" "$a"
       i=$((i + 1))
@@ -414,6 +497,244 @@ note_invocation() {
   return 0
 }
 
+# note_commit_close <log> -- the commit the tree stands on as the run ends,
+# appended just before the seal (ST0011).
+#
+# THE INVOCATION BLOCK'S `commit:` SAYS ONLY WHERE THE RUN STARTED. A gate that
+# writes into the tree, or commits, leaves that line naming a commit the run
+# did not stay on, and a green sealed over it would be remembered for bytes no
+# commit holds. So the same identity is read again here, and seal_verdict takes
+# a green for a commit only when this line and the open one name it alike, both
+# clean. Tagged, as every line devbin writes into a log on every run is, so no
+# grammar can read it.
+note_commit_close() {
+  local log="$1"
+  [ -n "$log" ] || return 0
+  printf '%scommit at close: %s\n' "$_DEVBIN_INVOKE_TAG" "$(git_head_identity "${PROJECT_ROOT:-.}")" >>"$log" ||
+    warn "could not record the commit at close in $log -- no green of this run will be remembered"
+  return 0
+}
+
+# runlog_clock -- the clock as a run's record writes it: UTC, to the second,
+# ISO 8601 with its Z. The one spelling of `start:` and `end:`.
+runlog_clock() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# note_end <log> -- when the run ended, appended just before the seal (ST0011),
+# beside the commit at close: the invocation block's `start:` is when it
+# opened. Written by run_gate, which is still running however the command it
+# ran ended, so a run that exited mid-way records its end too. Tagged, as every
+# line devbin writes into a log is, so no grammar reads it.
+note_end() {
+  local log="$1"
+  [ -n "$log" ] || return 0
+  printf '%send: %s\n' "$_DEVBIN_INVOKE_TAG" "$(runlog_clock)" >>"$log" ||
+    warn "could not record the end in $log -- the kept run will not say when it ended"
+  return 0
+}
+
+# note_line <text> -- <text> as a tagged line on stdout: how a command running
+# under run_gate puts a line of its own into that run's log, since the gate
+# tees its stdout there, and the tag keeps every grammar off it, as off each
+# line the note_* writers append. A cut's leg lines go this way (ST0011).
+note_line() {
+  printf '%s%s\n' "$_DEVBIN_INVOKE_TAG" "$1"
+}
+
+# seal_verdict <dir> <suffix> <sha> <platform> -- what the kept runs of one
+# gate under <dir> say about <sha> on <platform>: one word, a TAB, and a detail
+# that names the seal (ST0011). The words are ci-state's, verbatim, so the
+# release's legs read one vocabulary:
+#
+#   green    the newest run that stood on <sha> on <platform> sealed empty
+#   failed   that run sealed non-empty
+#   pending  that run is open: in flight, or killed before its seal
+#   none     no kept run stands for <sha>, clean, on <platform>: none stood on
+#            it, the newest that did sealed green after its tree moved, or the
+#            two newest that did carry one mtime, so neither is the newer
+#   unknown  a read failed: <sha> is not a whole commit sha, or a directory,
+#            a log or a seal is missing or could not be read. Never a guess
+#
+# The detail of green, failed and pending is that run's seal, an absolute
+# path; of none and unknown, why.
+#
+# A RUN IS A RECORD OF <sha> WHEN ITS INVOCATION BLOCK'S `commit:` READS <sha>,
+# BARE, and its platform is <platform>; a run that opened dirty measured bytes
+# no commit holds and is no record at all. A record's GREEN STANDS only when its
+# `commit at close:` line reads <sha> too: one whose tree was dirtied or moved
+# before its seal stands for no commit, so it is `none`, never green. A record's
+# red is `failed` whatever its close line says, the safe direction, since the
+# gates then run again. An open run has no close line yet and is `pending`.
+#
+# WHAT WAS READ AND WHAT COULD NOT BE ARE TWO ANSWERS. A record read whole that
+# stands for nothing, a moved tree or a tie, is `none`: definite, and the gates
+# run again. `unknown` is kept for a read that failed, which release status
+# reports as UNREADABLE rather than as work left (release_gates_state).
+#
+# THE NEWEST RUN DECIDES, BY MTIME, in newest_run_stems' order: a same-minute
+# pair's `-SS` name sorts before the plain one while being newer, which is why
+# purge orders by mtime too. A green older than a failed run of the same commit
+# is not remembered, since the later run is the verdict. ONCE A RECORD DECIDES,
+# NO STRICTLY OLDER RUN IS READ: an older log that cannot be read, of this
+# commit or another, cannot unmake the verdict a newer one gave. A run of the
+# same mtime is read, since it may be a second record that ties. Each pair is
+# read for its own `platform:` line, so one written on another platform is no
+# record of <sha> on <platform>; a remote leg's pairs stay under that leg's own
+# directory, and are read there.
+#
+# AN EMPTY <platform> IS THE NEWEST RECORD'S OWN (ST0011 WP-05): the first
+# record of <sha> in newest order names it, in the same one pass, and every
+# older record is then read against it as against a named one. A remote leg's
+# pairs all come from its one host, whose platform this machine does not know
+# until a pair names it (lib/release.legs). AN ABSENT <platform> IS A CALLER'S
+# SLIP, never read as empty: a caller that forgot it would read another
+# platform's records as its own, the narrowing issue 0052 closed.
+#
+# A SHA THAT IS NOT WHOLE NAMES NO RECORD, so it is `unknown`, naming it:
+# `none` would say no run stood on a commit nobody named whole.
+seal_verdict() {
+  local dir="$1" suffix="$2" sha="$3" platform="${4?seal_verdict: <platform> is required, empty to read the newest record on its own platform}" named=yes stem out errors fields
+  local open plat close hasclose state word="" seal="" prev="" why
+  [ -n "$platform" ] || named=no
+  # The one pass's awk program, held once since a failed pass runs again for
+  # its error (below).
+  # shellcheck disable=SC2016 # an awk program: its $0 is awk's, never the shell's
+  local us=$'\x1f' prog='
+    !seen && $0 == t "invocation, one argument per line:" { inb = 1; next }
+    inb && $0 == t { inb = 0; seen = 1; next }
+    inb && index($0, t "  platform: ") == 1 { pl = substr($0, length(t "  platform: ") + 1) }
+    inb && index($0, t "  commit: ") == 1 { opened = substr($0, length(t "  commit: ") + 1) }
+    index($0, t "commit at close: ") == 1 { closed = substr($0, length(t "commit at close: ") + 1); has = 1 }
+    END { printf "%s%s%s%s%s%s%s\n", opened, us, pl, us, closed, us, (has ? "yes" : "no") }
+  '
+  if ! is_commit_sha "$sha" full; then
+    printf 'unknown\t%s is not a whole commit sha, so no run can be read as standing on it\n' "${sha:-an empty sha}"
+    return 0
+  fi
+  # Resolved as run_gate resolves the out-dir it writes, so a caller standing
+  # anywhere reads the directory the runs were written to.
+  dir="$(abs_path "$dir")"
+  if [ ! -e "$dir" ]; then
+    printf 'none\tno run of %s under %s\n' "$suffix" "$dir"
+    return 0
+  fi
+  # dir_unreadable (lib/helpers), the one test a reader makes before it globs:
+  # a glob over a directory it cannot list answers no run at all.
+  if dir_unreadable "$dir"; then
+    printf 'unknown\t%s cannot be read, so its runs of %s cannot be\n' "$dir" "$suffix"
+    return 0
+  fi
+  while IFS= read -r stem; do
+    [ -n "$stem" ] || continue
+    out="$stem.out"
+    errors="$stem.errors"
+    # Decided, and this run is strictly older than the record that decided it:
+    # nothing older is read (above).
+    if [ -n "$word" ] && [ "$prev" -nt "$out" ]; then
+      break
+    fi
+    if [ ! -r "$out" ]; then
+      printf 'unknown\t%s cannot be read, so whether it stood on %s is unknown\n' "$(abs_path "$out")" "${sha:0:12}"
+      return 0
+    fi
+    # ONE PASS OVER THE LOG, AS BYTES: the block's platform and commit, and the
+    # last close line, joined by a unit separator, which no log line holds and
+    # which, unlike a TAB, is not IFS whitespace, so an empty field stays one.
+    # A pass that fails is run once more for its words alone, so the answer
+    # names the read's own error, as run_gate's count does.
+    if ! fields="$(log_awk -v t="$_DEVBIN_INVOKE_TAG" -v us="$us" "$prog" "$out" 2>/dev/null)"; then
+      why="$(log_awk -v t="$_DEVBIN_INVOKE_TAG" -v us="$us" "$prog" "$out" 2>&1 >/dev/null)" || true
+      printf 'unknown\t%s could not be read (%s), so whether it stood on %s is unknown\n' \
+        "$(abs_path "$out")" "${why%%$'\n'*}" "${sha:0:12}"
+      return 0
+    fi
+    IFS="$us" read -r open plat close hasclose <<<"$fields"
+    # EVERY RUN THAT OPENED ON <sha>, CLEAN, ON <platform> IS A RECORD OF IT,
+    # whatever its close line says: a red one is `failed` either way, so a newer
+    # failure always outranks an older green, and the close line decides only
+    # whether a green stands. A run that opened dirty, on another commit or on
+    # another platform is none of <sha>'s, and is passed over.
+    [ "$open" = "$sha" ] || continue
+    if [ "$named" = no ]; then
+      platform="$plat"
+      named=yes
+    fi
+    [ "$plat" = "$platform" ] || continue
+    if [ -n "$word" ]; then
+      # A SECOND RECORD NOT OLDER THAN THE FIRST (the break above) carries its
+      # mtime, so neither is the newer.
+      printf 'none\ttwo runs of %s on %s carry one mtime, so neither is the newer and neither stands for it: %s, %s\n' \
+        "${sha:0:12}" "$platform" "$seal" "$(abs_path "$errors")"
+      return 0
+    fi
+    case "$(seal_state "$errors")" in
+      inflight) state=pending ;;
+      absent)
+        printf 'unknown\t%s has no seal beside it, so its verdict on %s is unknown\n' "$(abs_path "$out")" "${sha:0:12}"
+        return 0
+        ;;
+      unreadable)
+        printf 'unknown\t%s cannot be read, so its verdict on %s is unknown\n' "$(abs_path "$errors")" "${sha:0:12}"
+        return 0
+        ;;
+      failed) state=failed ;;
+      green)
+        if [ "$hasclose" != yes ] || [ "$close" != "$sha" ]; then
+          printf 'none\t%s sealed green, but its tree was not %s, clean, at the seal (%s), so it stands for no commit\n' \
+            "$(abs_path "$errors")" "${sha:0:12}" "$([ "$hasclose" = yes ] && printf 'commit at close: %s' "$close" || printf 'no close line')"
+          return 0
+        fi
+        state=green
+        ;;
+    esac
+    word="$state" seal="$(abs_path "$errors")" prev="$out"
+  done <<<"$(newest_run_stems "$dir" "$suffix")"
+  if [ -z "$word" ]; then
+    printf 'none\tno kept run of %s under %s stood on %s, clean, on %s\n' "$suffix" "$(abs_path "$dir")" "${sha:0:12}" "${platform:-any platform}"
+  else
+    printf '%s\t%s\n' "$word" "$seal"
+  fi
+  return 0
+}
+
+# _seal_failure_blocks <log> <extract_awk> -- print the failure blocks
+# <extract_awk> finds in <log>, stripped of escapes: nothing when it finds none
+# or cannot read the log. Returns 0 either way, so stage_beside keeps what it
+# printed, empty included, for write_errors_file to judge. Only the reading is
+# forgiven: a stripped text that cannot be written fails, so stage_beside drops
+# the temporary rather than seal a text cut short.
+#
+# DEVBIN'S OWN ANNOTATIONS ARE STRIPPED BEFORE THE GRAMMAR SEES THEM. The
+# reason is in _DEVBIN_INVOKE_TAG: some grammars print on unanchored patterns
+# and the recorded command line is arbitrary config text, so leaving it in the
+# grammar's view risks a verdict made of the tool's normal output. The pattern
+# is a POSIX BRE, where the tag's `|` is a literal.
+#
+# The log is read as bytes all the way, the grep as well as the grammar
+# (issue 0231): under a UTF-8 locale macOS awk stopped at a latin1 byte and
+# left the seal short of every block after it, and GNU grep (3.12, measured)
+# drops the line holding the byte, saying only "binary file matches".
+_seal_failure_blocks() {
+  {
+    LC_ALL=C grep -v "^$_DEVBIN_INVOKE_TAG" "$1" 2>/dev/null |
+      log_awk "$2" 2>/dev/null || true
+  } | strip_ansi
+}
+
+# _seal_log_tail <rc> <log> -- print a red run's header and the tail of <log>,
+# stripped of escapes; when that pipeline fails, one line saying nothing could
+# be recovered.
+#
+# It deliberately does NOT strip devbin's annotations: a red run with nothing
+# parseable is exactly when the reader most needs to see what was invoked.
+_seal_log_tail() {
+  {
+    printf 'run FAILED (exit %s) with no parseable failure blocks -- log tail:\n\n' "$1"
+    # A vanished log still leaves the header above (non-empty = red).
+    tail -50 "$2" 2>/dev/null || printf '(log tail unavailable)\n'
+  } | strip_ansi ||
+    printf 'run FAILED (exit %s) -- no failure blocks and no log tail could be recovered.\n' "$1"
+}
+
 # write_errors_file <rc> <log> <errors> <extract_awk> -- seal the run's .errors
 # companion. The invariant: EMPTY means exactly "a completed green run". rc==0
 # truncates (the exit code is authoritative); rc!=0 writes the failure blocks
@@ -422,13 +743,24 @@ note_invocation() {
 # when errors is unset (--no-out keeps no companion). Never alters the run's own
 # exit.
 #
-# THE PORT TAKES THE GUARDED COPY (design D13). Most of the projects lacked
-# the vanished-directory guard below; one grew it after a suite swept a fixture
+# THE PORT TAKES THE GUARDED COPY. Most of the projects lacked the
+# vanished-directory guard below; one grew it after a suite swept a fixture
 # directory that shared a parent with the log dir. That hardening never reached
 # the others, and could not, while each kept its own copy of this function --
 # which is the clearest single argument for the fold.
+#
+# A RED SEAL IS NEVER WRITTEN IN PLACE (issue 0306). Written in place, the
+# redirect emptied the seal before the extraction had printed a line into it,
+# and seal_state reads an empty seal as a completed green run: for as long as
+# the extraction ran, any reader of the seal read a red run as green. So the
+# red text is staged beside the seal and renamed over it (stage_beside,
+# rename_staged), and until the rename the seal holds the in-flight marker
+# open_run_log seeded, which no reader takes for green. A red seal that cannot
+# be staged or renamed is left unsealed, and says so: an in-place fallback would
+# reopen the window the rename closes. The green path needs no temporary, since
+# its one write takes the seal from in flight to empty.
 write_errors_file() {
-  local rc="$1" log="$2" errors="$3" extract="$4"
+  local rc="$1" log="$2" errors="$3" extract="$4" staged
   [ -n "$errors" ] || return 0
   # The seal's directory can vanish mid-run -- a suite that sweeps its own
   # fixture directory takes the log dir with it if the two share a parent. Say
@@ -446,33 +778,33 @@ write_errors_file() {
     fi
     return 0
   fi
-  # A failed extraction (unreadable log) falls through to the tail fallback
-  # below -- the file must end non-empty on a red run either way.
-  #
-  # DEVBIN'S OWN ANNOTATIONS ARE STRIPPED BEFORE THE GRAMMAR SEES THEM. The
-  # reason is in _DEVBIN_INVOKE_TAG: two grammars print on unanchored patterns
-  # and the recorded command line is arbitrary config text, so leaving it in the
-  # grammar's view risks a verdict made of the tool's normal output. The pattern
-  # is a POSIX BRE, where the tag's `|` is a literal.
-  #
-  # The tail fallback below deliberately does NOT strip: a red run with nothing
-  # parseable is exactly when the reader most needs to see what was invoked.
-  grep -v "^$_DEVBIN_INVOKE_TAG" "$log" 2>/dev/null |
-    awk "$extract" 2>/dev/null | strip_ansi >"$errors" || true
-  if [ ! -s "$errors" ]; then
-    {
-      printf 'run FAILED (exit %s) with no parseable failure blocks -- log tail:\n\n' "$rc"
-      # A vanished log still leaves the header above (non-empty = red).
-      tail -50 "$log" 2>/dev/null || printf '(log tail unavailable)\n'
-    } | strip_ansi >"$errors" || true
+  # A seal that is EMPTY reads as a completed green run already, so it takes
+  # the in-flight marker first, in place, which opens no window, and from then
+  # on reads in flight until the red text replaces it: a seal that cannot be
+  # staged is then left unsealed, never green. open_run_log seeds the marker,
+  # so a gate's own seal holds it already.
+  if [ -f "$errors" ] && [ ! -s "$errors" ]; then
+    inflight_marker >"$errors" 2>/dev/null || true
   fi
-  # RED IS NEVER EMPTY -- ENFORCED here rather than reasoned about at the two
-  # writes above. An empty companion means "completed green run" to every reader
-  # of this seal, and stripping opens a path to empty that did not exist before:
-  # an extraction whose whole output was escape sequences.
-  [ -s "$errors" ] ||
-    printf 'run FAILED (exit %s) -- no failure blocks and no log tail could be recovered.\n' \
-      "$rc" >"$errors"
+  # The failure blocks, or, when they come to nothing (nothing parseable, an
+  # unreadable log), the header and the log tail. Each text has its own
+  # temporary: stage_beside gives a read-only seal's temporary its mode back
+  # after the write, so nothing can be added to the first one afterwards.
+  staged="$(stage_beside "$errors" _seal_failure_blocks "$log" "$extract")" || staged=""
+  if [ -n "$staged" ] && [ ! -s "$staged" ]; then
+    rm -f "$staged"
+    staged="$(stage_beside "$errors" _seal_log_tail "$rc" "$log")" || staged=""
+  fi
+  # RED IS NEVER EMPTY -- ENFORCED on the temporary, before it can replace the
+  # seal, rather than reasoned about in the texts above. An empty companion
+  # means "completed green run" to every reader of this seal, and stripping
+  # opens a path to empty that did not exist before: an extraction whose whole
+  # output was escape sequences.
+  if [ -n "$staged" ] && [ -s "$staged" ] && rename_staged "$staged"; then
+    return 0
+  fi
+  [ -z "$staged" ] || rm -f "$staged"
+  warn "cannot seal $errors -- the run was RED but its seal could not be staged and renamed into place, so it is left unsealed"
   return 0
 }
 
@@ -490,10 +822,10 @@ write_errors_file() {
 # concern, and a grammar that drifts from the writer's expectations produces a
 # seal that is wrong rather than absent.
 #
-# All seven were byte-identical in every project that carried them -- unlike
-# write_errors_file above, these propagated cleanly. `shell` and `generic` are
-# new: the corpus had no shell-project gate, and nothing to fall back on for a
-# tool with no named grammar.
+# The corpus's grammars were byte-identical in every project that carried them
+# -- unlike write_errors_file above, these propagated cleanly. `shell` and
+# `generic` are new: the corpus had no shell-project gate, and nothing to fall
+# back on for a tool with no named grammar.
 
 # shellcheck disable=SC2016  # single-quoted awk source, expanded by awk not bash
 _DEVBIN_GRAMMAR_MIX='
@@ -543,7 +875,7 @@ _DEVBIN_GRAMMAR_CARGO='
 infail                     { print; next }
 '
 
-# xcodebuild test output. FOUR shapes carry a Swift failure and they are not
+# xcodebuild test output. The shapes that carry a Swift failure are not
 # nested: a swift-testing issue (`recorded an issue at ...`), a compiler/XCTest
 # diagnostic (`<path>:<line>: error: ...`), the XCTest per-case verdict
 # (`Test Case '-[Suite test]' failed`), and the run verdict
@@ -564,7 +896,7 @@ infail                     { print; next }
 # or at 40 lines with a marker -- a truncated seal that does not SAY it
 # truncated is the same silent-cap failure in miniature.
 #
-# The three status glyphs are spliced in as DATA rather than written as escapes
+# The status glyphs are spliced in as DATA rather than written as escapes
 # inside the regex literals, for the same reason strip_ansi passes the ESC byte
 # in as a variable: `\xNN` is a gawk extension that mawk and BWK awk need not
 # honour, and a silently non-matching rule here would be indistinguishable from
@@ -574,9 +906,15 @@ infail                     { print; next }
 _DEVBIN_XC_FAIL="$(printf '\342\234\230')" # heavy ballot X   -- issue recorded
 _DEVBIN_XC_SKIP="$(printf '\342\227\207')" # white diamond    -- test started
 _DEVBIN_XC_PASS="$(printf '\342\234\224')" # heavy check mark -- test passed
+# swift-testing leads some lines with U+200B ZERO WIDTH SPACE before the glyph
+# (a parameterized test's case lines and its result line, issue 0229), so the
+# glyph rules here and in the counter read each line with it stripped first.
+# Spliced as bytes, like the glyphs, and never in a bracket.
+_DEVBIN_XC_ZWSP="$(printf '\342\200\213')" # zero width space -- leads some lines
 
 # shellcheck disable=SC2016
 _DEVBIN_GRAMMAR_XCODEBUILD='
+{ sub(/^'"$_DEVBIN_XC_ZWSP"'/, "") }
 /^'"$_DEVBIN_XC_FAIL"'/ {
   print
   inissue = ($0 ~ /recorded an issue/)
@@ -593,9 +931,9 @@ inissue {
 /^Test Suite .* started/                    { next }
 /: (error|warning): .* Compiling /          { next }
 /: error: /                                 { print; next }
-/^Test Case .* failed/                      { print; next }
+/^Test (Case|case) .* failed/               { print; next }
 /^ *(XCTAssert|Assertion Failure|failed -)/ { print; next }
-/^\*\* (TEST|BUILD) FAILED \*\*/            { print; next }
+/^\*\* (TEST|TEST EXECUTE|BUILD) FAILED \*\*/ { print; next }
 /^Testing failed:/                          { infail = 1; print; next }
 infail && /^\t/                             { print; next }
 infail                                      { infail = 0; next }
@@ -611,9 +949,9 @@ _DEVBIN_GRAMMAR_LUA='
 inblock                     { print; next }
 '
 
-# BATS TAP output and shellcheck diagnostics -- the two gates a shell project
+# BATS TAP output and shellcheck diagnostics -- the gates a shell project
 # actually runs. NEW in devbin: the corpus had no shell-language project, which
-# is precisely why Devbin needed it first (design D12, devbin uses devbin).
+# is precisely why Devbin needed it first (devbin uses devbin).
 #
 # A bats failure is `not ok N name` followed by `#`-prefixed detail; a passing
 # `ok` line closes the block. A shellcheck finding is an `In <file> line N:`
@@ -647,10 +985,10 @@ _DEVBIN_GRAMMAR_GENERIC='
 
 # grammar_for <name> -- the named-grammar reader.
 #
-# A case rather than an associative array: bash 3.2 was a hard target (D9,
-# since reversed by issue 0022; the case costs nothing and stays) and
-# has no `declare -A`. An unknown name falls back to `generic` with a warning
-# rather than sealing with an empty extraction, because an empty grammar makes
+# A case rather than an associative array: bash 3.2 was a hard target (since
+# reversed by issue 0022; the case costs nothing and stays) and has no
+# `declare -A`. An unknown name falls back to `generic` with a warning rather
+# than sealing with an empty extraction, because an empty grammar makes
 # every red run seal its log tail and look identical.
 grammar_for() {
   case "$1" in
@@ -709,7 +1047,7 @@ grammar_for() {
 # every gate whose tool devbin has no reader for.
 
 # Elixir 1.20's ExUnit CLI formatter, which replaced "N tests, M failures".
-# Two forms: `Result: 13 passed, 9 excluded` and the failing `Result: 0/1
+# Its forms: `Result: 13 passed, 9 excluded` and the failing `Result: 0/1
 # passed`. Excluded and skipped are NOT executed, so they are deliberately not
 # counted -- a fully-excluded run IS an empty run and should promote.
 # shellcheck disable=SC2016
@@ -739,9 +1077,10 @@ END { if (seen) print total + 0 }
 # project before anyone wrote it down; the last observer had to say "passed
 # vacuously" by hand, because the gate would not say it.
 #
-# TWO FORMS, BOTH `exit 0`, both read off the critic's own source rather than off
-# one observed run: it prints `ok: no staged <lang> files to scan` (examined
-# nothing) and `ok: no <lang> findings at severity >= <sev> across <n> file(s)`.
+# ITS FORMS, ALL `exit 0`, all read off the source of `intent critic` itself
+# rather than off one observed run: it prints
+# `ok: no staged <lang> files to scan` (examined nothing) and
+# `ok: no <lang> findings at severity >= <sev> across <n> file(s)`.
 # A run WITH findings exits non-zero, so it never reaches the promotion, which is
 # guarded on rc==0.
 #
@@ -793,7 +1132,7 @@ END { if (seen) print total + 0 }
 # so it matches nothing, and every green swift-testing run reads as "nothing
 # ran" and is promoted to FAILED. That is the live trap this counter exists to
 # avoid, reintroduced by a spelling. Measured, not assumed: the bracket form
-# counted 1 of 3 real lines on this machine (delta review, finding 1).
+# counted 1 of 3 real lines on this machine.
 #
 # Counted lines are COMPLETIONS, and the trailers gate the verdict:
 #
@@ -805,18 +1144,39 @@ END { if (seen) print total + 0 }
 #     the trailer BEFORE the per-test arms can count it.
 #   - `seen` is the same design as every counter above: no trailer, no verdict.
 #     A build-only run under this grammar (`** BUILD SUCCEEDED **`, no test
-#     system engaged) is the `check compile` shape and must not promote
-#     (delta review, finding 2).
+#     system engaged) is the `check compile` shape and must not promote.
+#   - XCTest's `Executed N tests` summary is INDENTED (a tab and a space), so
+#     the rule allows leading blanks; anchored at column 0 it never matched a
+#     real log, and every XCTest run was uncounted (issue 0229). Its N is not
+#     the count: xcodebuild prints one per suite level, so N would be counted
+#     twice. The completions are.
+#   - A completed TEST action (`** TEST SUCCEEDED **` or `** TEST FAILED **`,
+#     and test-without-building's `** TEST EXECUTE ... **`) is a test run even
+#     when neither framework printed a trailer, as when a selection matched
+#     nothing: it counts the tests it names, zero included, and zero is
+#     promoted. A run whose every XCTest case was skipped names no completion,
+#     so it is zero too: nothing executed. The exception is a test action whose
+#     BUILD failed (`The following build commands failed:`): no test system was
+#     reached, so it stays uncounted, and it fails on its exit code anyway.
+#     build-for-testing's `** TEST BUILD ... **` is a build, and not matched.
+#   - Because a completed action now promotes zero, every completion must be
+#     seen: parallel XCTest writes `Test case '...' passed on '<clone>'`, with
+#     a lower-case `case`, so both spellings count. swift-testing's
+#     `recorded an issue` lines are not completions, and are not counted.
 # shellcheck disable=SC2016
 _DEVBIN_COUNT_XCODEBUILD='
-/^Test Case .* passed/                          { total += 1; next }
-/^Test Case .* failed/                          { total += 1; next }
-/^Executed [0-9]+ test/                         { seen = 1; next }
+{ sub(/^'"$_DEVBIN_XC_ZWSP"'/, "") }
+/^Test (Case|case) .* passed/                   { total += 1; next }
+/^Test (Case|case) .* failed/                   { total += 1; next }
+/^[ \t]*Executed [0-9]+ test/                   { seen = 1; next }
 /^'"$_DEVBIN_XC_PASS"' Test run with /          { seen = 1; next }
 /^'"$_DEVBIN_XC_FAIL"' Test run with /          { seen = 1; next }
+/^'"$_DEVBIN_XC_FAIL"' Test .* recorded an issue/ { next }
 /^'"$_DEVBIN_XC_PASS"' Test /                   { total += 1; next }
 /^'"$_DEVBIN_XC_FAIL"' Test /                   { total += 1; next }
-END { if (seen) print total + 0 }
+/^\*\* TEST (EXECUTE )?(SUCCEEDED|FAILED) \*\*/ { action = 1; next }
+/^The following build commands failed:/         { buildfailed = 1; next }
+END { if (seen || (action && !buildfailed)) print total + 0 }
 '
 
 # Credo reports what it examined rather than what it ran. Zero source files is
@@ -912,7 +1272,7 @@ KEEPSET
 # one question these files exist to answer: AN INTERMITTENT FAILURE IS DIAGNOSED
 # BY DIFFING A RED RUN AGAINST THE GREEN ONE BEFORE IT, and purging the previous
 # run destroys the differential at the moment it becomes interesting. Bitten
-# three times in one project before it was boarded (2026-08-20).
+# three times in one project before it was fixed.
 #
 # So purge keeps the newest RUNLOG_KEEP_RUNS run-pairs of the family rather than
 # one. RUNLOG_KEEP_RUNS=1 restores the old behaviour; 0 is REFUSED rather than
@@ -929,38 +1289,51 @@ KEEPSET
 # `$(...)` kills only the subshell, so a validating reader used as
 # `want="$(runlog_keep_runs)"` prints its refusal, leaves `want` EMPTY, and the
 # purge then runs with NO retention at all -- deleting MORE on a bad setting
-# than on a good one. Measured on exactly that shape before it was split
-# (2026-08-20): RUNLOG_KEEP_RUNS=0 refused loudly and purged 16 of 18 files
-# anyway. Call the assert first, unsubstituted, then read the variable.
+# than on a good one. Measured on exactly that shape before it was split:
+# RUNLOG_KEEP_RUNS=0 refused loudly and purged 16 of 18 files anyway. Call the
+# assert first, unsubstituted, then read the variable.
 runlog_assert_keep_runs() {
+  local why
+  if why="$(runlog_keep_runs_problem)"; then
+    die "$why"
+  fi
+}
+
+# runlog_keep_runs_problem -- why RUNLOG_KEEP_RUNS cannot be read as a number
+# of runs to keep, printed, rc 0; nothing, rc 1, when it can. THE ONE RULE,
+# which runlog_assert_keep_runs dies on and which a caller reads before a
+# purging run starts, as a cut's pre-flight does (ST0011): found by the purge
+# itself, after the gates' pair had sealed green, it ended the cut with no row
+# and no summary.
+runlog_keep_runs_problem() {
   local n="${RUNLOG_KEEP_RUNS:-5}"
   case "$n" in
-    '' | *[!0-9]*) die "RUNLOG_KEEP_RUNS must be a whole number, got '$n'" ;;
-    0) die "RUNLOG_KEEP_RUNS=0 would purge the run being kept; use 1 for keep-current-only" ;;
+    '' | *[!0-9]*) printf "RUNLOG_KEEP_RUNS must be a whole number, got '%s'\n" "$n" ;;
+    0) printf 'RUNLOG_KEEP_RUNS=0 would purge the run being kept; use 1 for keep-current-only\n' ;;
+    *) return 1 ;;
   esac
 }
 
-# newest_run_stems <dir> <suffix> <n> -- print the stems of the newest <n> kept
-# runs of this family, one per line. Selection-sort by mtime rather than a sort
-# pipeline, because bash 3.2 has no mapfile and the candidate set is tiny.
+# newest_run_stems <dir> <suffix> [<n>] -- print the stems of the newest <n>
+# kept runs of this family, one per line, newest first; with no <n>, of every
+# kept run. THE ONE FILTER OF WHAT A KEPT RUN IS (a regular `.out`, never a
+# LATEST_* link), which purge reads through for its window and seal_verdict for
+# its records (ST0011), ordered newest first by newest_first (lib/helpers), the
+# one order by time, which the cache's gc orders its entries by too.
 newest_run_stems() {
-  local dir="$1" suffix="$2" want="$3" f newest picked="" round=0
-  while [ "$round" -lt "$want" ]; do
-    newest=""
-    for f in "$dir"/*."$suffix".out; do
-      [ -L "$f" ] && continue
-      [ -f "$f" ] || continue
-      in_keepset "${f%.out}" "$picked" && continue
-      if [ -z "$newest" ] || [ "$f" -nt "$newest" ]; then
-        newest="$f"
-      fi
-    done
-    [ -n "$newest" ] || break
-    picked="$picked
-${newest%.out}"
-    round=$((round + 1))
+  local dir="$1" suffix="$2" want="${3:-}" f n=0
+  local -a runs=() ordered=()
+  for f in "$dir"/*."$suffix".out; do
+    [ -L "$f" ] && continue
+    [ -f "$f" ] || continue
+    runs+=("$f")
   done
-  printf '%s\n' "$picked" | grep -v '^$' || true
+  newest_first ordered "${runs[@]}"
+  for f in "${ordered[@]}"; do
+    [ -z "$want" ] || [ "$n" -lt "$want" ] || break
+    printf '%s\n' "${f%.out}"
+    n=$((n + 1))
+  done
 }
 
 # purge_run_logs <dir> <suffix> <current_log> -- delete the PRIOR kept runs of
@@ -1061,7 +1434,7 @@ warn_if_tee_failed() {
 # print_run_referent -- echo the opaque string the PROJECT handed us. Verbatim.
 #
 # THE ONE HOME for the referent line, called from `print_run_verdict` here and
-# from `run_all`'s summary in lib/resolve. Two sites, one spelling.
+# from `run_all`'s summary in lib/resolve. Every site, one spelling.
 #
 # WHY IT EXISTS. A leg's verdict is written as a claim about the project --
 # `FAILED: rust` -- but what it measured is one tree at one instant, and the run
@@ -1087,12 +1460,13 @@ warn_if_tee_failed() {
 # ---------------------------------------------------------------------------
 #
 # The project composes the value; devbin prints it and knows nothing about it.
-# `git rev-parse HEAD` plus a dirty count is one project's answer, and it is not
-# devbin's answer, because **devbin is not a git tool and must not become one.**
-# A generic gate runner has no business knowing what a commit is: consumers that
-# are not checkouts at all still get gates, and the moment this file can tell a
-# sha from a hostname, the layer boundary has been moved by implementation
-# rather than by a decision -- and nothing in a diff would say so.
+# `git rev-parse HEAD` plus a dirty count is one project's answer, and the
+# referent stays the project's to compose. THE COMMIT A RUN STOOD ON IS DEVBIN'S
+# OWN FIELD NOW, and that boundary moved by a decision, not by implementation
+# (ST0011): the invocation block's `commit:` and the `commit at close:`
+# line, both git_head_identity's, which answers `unknown` outside a checkout,
+# so a consumer that is not one still gets gates. Those two lines are what
+# seal_verdict reads; this string is not, and never will be.
 #
 # So the whole implementation is a presence test and a printf. There is
 # deliberately no validation, no trimming, no length cap and no format check:
@@ -1107,10 +1481,10 @@ warn_if_tee_failed() {
 # same claim, and devbin cannot choose between them without parsing.
 # _referent_line -- the line's ONE spelling, or rc 1 when there is no referent.
 #
-# Two sinks read it now -- the terminal, through print_run_referent, and the
-# run's own log, through note_referent -- and a second `printf 'measured: %s'`
+# Its sinks are the terminal, through print_run_referent, and the run's own
+# log, through note_referent -- and a second `printf 'measured: %s'`
 # anywhere is how two copies of a string devbin is FORBIDDEN TO PARSE start
-# disagreeing about it. Composition here; delivery in the two callers.
+# disagreeing about it. Composition here; delivery in the callers.
 _referent_line() {
   [ -n "${DEVBIN_RUN_REFERENT:-}" ] || return 1
   printf 'measured: %s\n' "$DEVBIN_RUN_REFERENT"
@@ -1145,7 +1519,7 @@ print_run_referent() {
 # the `.out` and never that tail.
 #
 # TAGGED, because it is written on EVERY run, which is precisely the condition
-# _DEVBIN_INVOKE_TAG exists for: two grammars match on unanchored patterns and
+# _DEVBIN_INVOKE_TAG exists for: some grammars match on unanchored patterns and
 # the referent is arbitrary consumer text, so an unfiltered `[deadbeef] +2
 # dirty` reads as a credo issue tag and seals a verdict assembled out of
 # devbin's own annotation. note_promotion needs no tag and says why in its own
@@ -1166,7 +1540,7 @@ note_referent() {
 # A runner's own `finished in` is a property of the ARTEFACT: it barely moves
 # between machines. Wall-clock is a property of the APPARATUS. **The ratio
 # between them measures the apparatus, and it needs no mechanism named** --
-# which is why it works where five successive explanations of a slow estate
+# which is why it works where five successive explanations of a slow machine
 # did not.
 #
 # The measurement that produced it, on one project, same tests throughout:
@@ -1180,7 +1554,7 @@ note_referent() {
 # ratio says "the apparatus is loud" without claiming to know why, and that is
 # the whole of its value.
 #
-# THREE LIMITS, ALL IN THE CODE RATHER THAN IN A NOTE, BECAUSE A READER MEETS
+# ITS LIMITS ARE ALL IN THE CODE RATHER THAN IN A NOTE, BECAUSE A READER MEETS
 # THE OUTPUT AND NEVER THE COMMENT.
 #
 #   1. It needs a runner that reports its own time. Where no recognised form
@@ -1233,7 +1607,8 @@ print_run_overhead() {
   # way: cargo rounds to two places, so a binary running a few fast tests also
   # reads 0.00s. So the count stays, and the line says how many read zero, in
 # words that are no one runner's spelling: ExUnit's zero is `0.0 seconds`.
-  parsed="$(awk '
+  # Read as bytes, through log_awk, like every reader of a log (issue 0231).
+  parsed="$(log_awk '
     {
       if (match($0, /[Ff]inished in [0-9]+(\.[0-9]+)?/)) {
         seg = substr($0, RSTART, RLENGTH)
@@ -1266,7 +1641,7 @@ print_run_overhead() {
 # every time. That line is the point: it is how a caller resolves THE SEAL THIS
 # RUN WROTE rather than dereferencing LATEST_<GATE>.errors, which is re-pointed
 # by every run in the tree and is therefore last-writer-wins whenever more than
-# one node is working. The seals are always exact; it is only ever the pointer
+# one process is working. The seals are always exact; it is only ever the pointer
 # that races. The dangerous direction is the silent one: your run seals RED, a
 # peer's green run relinks a second later, and `[ -s LATEST_MIX.errors ]` reads
 # GREEN.
@@ -1276,23 +1651,23 @@ print_run_overhead() {
 # chatter instead of its artifact. The file is the verdict: empty means a
 # COMPLETED run was green. Read the file.
 #
-# The name print_run_verdict (D13) wins over the corpus's other
-# spelling, print_failed_log_line, because it is a strict superset and reads
-# colours as `${red:-}` so it survives `set -u` when init_colors was never
-# called.
+# The name print_run_verdict wins over the corpus's other spelling,
+# print_failed_log_line, because it is a strict superset and reads colours as
+# `${red:-}` so it survives `set -u` when init_colors was never called.
 print_run_verdict() {
   local rc="$1" keep="$2" log="$3" errors="${4:-}" why
   if [ "$keep" = 1 ] && [ -n "$errors" ]; then
     printf 'verdict: %s\n' "$(abs_path "$errors")"
-    # DELIBERATELY INSIDE THIS BLOCK, so the two lines appear together or not at
-    # all. A referent with no verdict beside it is noise; a verdict with no
-    # referent is the defect this exists to close. Tying them means a reader who
-    # sees a verdict always sees what it was about, and there is no third state
-    # to reason about later. The residue is honest and small: at keep=0 neither
-    # line prints, because at keep=0 there is no pointer block at all.
+    # DELIBERATELY INSIDE THIS BLOCK, so the verdict and referent lines appear
+    # together or not at all. A referent with no verdict beside it is noise; a
+    # verdict with no referent is the defect this exists to close. Tying them
+    # means a reader who sees a verdict always sees what it was about, and there
+    # is no third state to reason about later. The residue is honest and small:
+    # at keep=0 neither line prints, because at keep=0 there is no pointer block
+    # at all.
     print_run_referent
-    # Third member of the same block and for the same reason: a reader who sees
-    # a verdict sees what it was about AND how much of the run was not the work.
+    # In the same block and for the same reason: a reader who sees a verdict
+    # sees what it was about AND how much of the run was not the work.
     print_run_overhead "$log"
   fi
   if [ "$rc" -ne 0 ] && [ "$keep" = 1 ]; then
@@ -1324,7 +1699,7 @@ print_run_verdict() {
 # record_seal <rc> <label> <errors> -- append EVERY gate's seal to the ledger,
 #   except a row from a run other than the one that owns it (see below).
 #
-# Exists so the synthesised `all` (D8) can end with one block naming every gate
+# Exists so the synthesised `all` can end with one block naming every gate
 # that failed AND where its seal is. Each gate already prints its own `verdict:`
 # line, but across a ten-option `all` those scroll past; the ledger is how the
 # summary points without re-deriving anything or dereferencing a LATEST_*
@@ -1342,7 +1717,7 @@ print_run_verdict() {
 # filters on it, and a reader that has to reach the end of the line to learn
 # which claim it is looking at will eventually stop looking.
 #
-# All three fields are non-empty by the guards above, so the empty-field collapse
+# Every field is non-empty by the guards above, so the empty-field collapse
 # `read -r` performs under IFS=<tab> cannot bite and no `-` placeholder is needed.
 # That is a property of the guards, not of the data: relax one and the
 # placeholder becomes required.
@@ -1353,7 +1728,7 @@ print_run_verdict() {
 record_seal() {
   local rc="$1" label="$2" errors="$3"
   [ -n "${DEVBIN_SEAL_LEDGER:-}" ] || return 0
-  # A ROW FROM ANOTHER RUN IS NOT WRITTEN (ported from a fix in one estate's
+  # A ROW FROM ANOTHER RUN IS NOT WRITTEN (ported from a fix in one project's
   # vendored copy). run_all EXPORTS its ledger, so a nested devbin inherits
   # it: a witness run failing on purpose put its red row into the PARENT's
   # ledger, and seal_failures named a seal the parent's gate never produced. A
@@ -1364,8 +1739,8 @@ record_seal() {
   #
   # A first cut keyed on the witness flag. The flag is inherited, so it also
   # emptied a witness `all`'s OWN ledger -- no FAILED seal lines and no
-  # disagreement check, a false green (critic-shell). A ledger with no owner
-  # recorded -- one not set by run_all -- takes every row, as before.
+  # disagreement check, a false green. A ledger with no owner recorded -- one
+  # not set by run_all -- takes every row, as before.
   if [ -n "${DEVBIN_SEAL_LEDGER_RUN:-}" ] && [ "$DEVBIN_SEAL_LEDGER_RUN" != "$(run_identity)" ]; then
     return 0
   fi
@@ -1396,7 +1771,7 @@ seal_failures() {
     [ -n "$path" ] || continue
     [ "$srr" = "0" ] && continue
     # Point at the SEAL, not at a LATEST_* pointer: those are re-pointed by every
-    # run in the tree, so with more than one session working they are
+    # run in the tree, so with more than one process working they are
     # last-writer-wins and can name a peer's run (see print_run_verdict). The
     # seals themselves are always exact.
     printf '  %s%-18s %s%s\n' "${dim:-}" "$label" "$path" "${reset:-}"
@@ -1438,7 +1813,7 @@ gate_out_dir() {
 #
 # NOTHING IGNORED THE LOGS. A project whose own .gitignore did not cover tmp/
 # read `?? tmp/` after its first gate, and `+dirty` in --version from then on,
-# and a release whose pre-flight passed could fail at step 5 because its own
+# and a release whose pre-flight passed could fail at its gates step because its own
 # gates had changed the tree. devbin still never writes the PROJECT's
 # .gitignore: this file sits inside devbin's own output directory.
 #
@@ -1468,7 +1843,7 @@ gate_out_ignore() {
 # not say -- its check-ignore failed, or git could not be run at all -- with
 # git's own first line, where it gave one, on stdout. Writes nothing.
 #
-# ONE ANSWER FOR THE DRY RUN AND THE CUT (critic-shell on 0157 v1). The release
+# ONE ANSWER FOR THE DRY RUN AND THE CUT (0157). The release
 # pre-flight asked git alone. A real cut had already opened its own log, which
 # wrote the ignore file, so it passed; a dry run had not, so it refused the same
 # tree. Asked here, both read the rule the writer follows.
@@ -1616,7 +1991,7 @@ is_gate_flag() {
 # wrapper flags were typed at a site that runs UNSEALED, once gate_split_args
 # has found them. Prints nothing when none was typed.
 #
-# The three flags act on a seal, and an unsealed run has none, so devbin cannot
+# The wrapper flags act on a seal, and an unsealed run has none, so devbin cannot
 # act on them there -- and it used to say nothing, handing them to the tool as
 # if they were meant for it: `check bare --purge` ran `echo bare-ran --purge`
 # (issue 0122, 0087's class at the sites its fix missed). What should happen to
@@ -1722,7 +2097,7 @@ option_seal_from() {
 #   --purge-only       purge without running anything; exits 0
 #   --no-color         disable colour (NO_COLOR is honoured regardless)
 #
-# This is what lets a gate be fully DECLARED (D1): `check compile` needs a
+# This is what lets a gate be fully DECLARED: `check compile` needs a
 # command line, a grammar and a log suffix, and nothing else. The corpus wrote
 # this sequence out by hand in eight runners -- colour init, spool open, the
 # teed pipeline, the tee-failure warning, the seal, the purge, the verdict --
@@ -1732,7 +2107,7 @@ option_seal_from() {
 # "genuinely different concerns": the per-tool terminal GRAMMAR (mix's glyph
 # feed off --trace, cargo's line-per-test) and the end-of-run report table. A
 # gate wanting either writes a handler and calls these functions directly --
-# which is the D1 boundary again, in a different place.
+# which is the declared-gate boundary again, in a different place.
 # ---------------------------------------------------------------------------
 # THE HEARTBEAT. Fixes no defect; makes correct behaviour legible.
 #
@@ -1743,13 +2118,13 @@ option_seal_from() {
 #
 # THE LAST OF THOSE IS WHY THIS IS NOT COSMETIC. Cargo's build lock works
 # correctly and invisibly, so a blocked build is indistinguishable from a hung
-# one -- and a node that "fixes the hang" by pointing CARGO_TARGET_DIR at a
-# private tree is behaving rationally. That is 52G of one estate's 113G. So
+# one -- and a user who "fixes the hang" by pointing CARGO_TARGET_DIR at a
+# private tree is behaving rationally. That is 52G of one machine's 113G. So
 # `check targetdir` and this heartbeat are two halves of one change: a
 # prohibition on forking only holds if the wait is made visible, and banning it
-# alone gets worked around by the next node that believes it has hung.
+# alone gets worked around by the next user who believes it has hung.
 #
-# FOUR THINGS IT DELIBERATELY DOES NOT DO.
+# WHAT IT DELIBERATELY DOES NOT DO.
 #
 #   1. It NEVER writes into the captured stream. Grammars COUNT lines in the log
 #      and run_gate promotes a counted run that executed nothing to FAILED --
@@ -1856,7 +2231,7 @@ fmt_duration() {
 run_gate() {
   local label="" suffix="" grammar=generic out_dir="tmp/gate" source=""
   local keep_log=1 purge=0 purge_only=0 want_color=auto allow_empty=0
-  local rc=0 counter="" executed=0
+  local rc=0 counter="" executed=0 count_rc=0 count_why=""
   local -a rcs=()
 
   while [ $# -gt 0 ]; do
@@ -1947,11 +2322,32 @@ run_gate() {
   # a top-level script with errexit as its ambient state. As a library function
   # it is wrong: run_gate would silently switch errexit ON for a caller that had
   # deliberately turned it off, and the first red gate would then kill a loop
-  # that was written to run every gate (D8's `all`). A function must not change
-  # its caller's shell options.
+  # that was written to run every gate (the synthesised `all`). A function must
+  # not change its caller's shell options.
   local errexit_was_on=0
   case "$-" in *e*) errexit_was_on=1 ;; esac
   set +e
+  # A SIGNAL TO THE WHOLE GROUP STILL GETS A SEAL (issue 0297). A Ctrl-C, a
+  # hangup, or a TERM sent to a job reaches every process in its group: the
+  # gated command, the tee below, and this shell, which died of it before the
+  # seal and left open_run_log's in-flight marker as the run's record, so a run
+  # that had ended read as still running to every reader of it. So while the
+  # pipeline runs this shell catches INT, TERM and HUP and only notes which
+  # came. bash runs the note once the pipeline has ended, as the signal ends
+  # it, and the run is then sealed red, the signal named in its log and its
+  # seal (note_signal, seal_signal). The caller's handlers are saved here and
+  # put back once the seal is written, and the signal is then sent to this
+  # process again (below), so the run ends with 128 plus the signal's number
+  # where nothing catches it, a caller that catches it still does, and a parent
+  # shell reads a child the signal ended: a synthesised `all` stops at a
+  # Ctrl-C, where a gate that returned 130 would have let it run the next one.
+  # THE COST: a signal sent to this process alone is acted on only once the
+  # gated command ends.
+  local caught="" traps_were said=""
+  traps_were="$(trap -p INT TERM HUP PIPE)"
+  trap 'caught=INT' INT
+  trap 'caught=TERM' TERM
+  trap 'caught=HUP' HUP
   gate_heartbeat_start "$log" "$label"
   # A GATED TOOL GETS NO INPUT (issue 0088, row 2, as amended twice). It
   # inherited the caller's stdin, so a tool run from a
@@ -1981,8 +2377,20 @@ run_gate() {
   gate_heartbeat_stop
   rc="${rcs[0]}"
   [ "$errexit_was_on" = 1 ] && set -e
-
-  warn_if_tee_failed "${rcs[1]:-0}" "$log"
+  # A RUN A SIGNAL ENDED IS RED, whatever its command's own exit: it did not
+  # finish. From here to the seal a write may find no reader, the signal having
+  # ended the tee of a pipe this shell's output goes to, and a write to a pipe
+  # with no reader would end this shell with SIGPIPE before the seal, so SIGPIPE
+  # is ignored until the caller's handlers are put back. The signal ended this
+  # run's own tee too, so its exit says nothing of a write that failed, and the
+  # sentence below says why the log stops where it does.
+  if [ -n "$caught" ]; then
+    rc=$((128 + $(kill -l "$caught")))
+    said="ENDED BY SIG$caught (${label:-$suffix}): a signal stopped the run before its command finished, so its verdict is red (exit $rc)"
+    trap '' PIPE
+  else
+    warn_if_tee_failed "${rcs[1]:-0}" "$log"
+  fi
 
   # THE ZERO-COUNT PROMOTION (issue 0006). Only on a ZERO exit: a run that
   # already failed carries its own verdict, and write_errors_file tails the log
@@ -1999,17 +2407,32 @@ run_gate() {
     # `check compile` declares the mix grammar without ever being a test run.
     # Defaulting empty to 0 here is the bug that failed every clean compile: the
     # test is "a number, and that number is zero", never "not a number".
-    executed="$(awk "$counter" "$log" 2>/dev/null)" || executed=""
-    if [ -n "$executed" ] && [ "$executed" -eq 0 ] 2>/dev/null; then
+    #
+    # AN AWK THAT FAILED IS NOT "NO TRAILER" (issue 0231). Under a UTF-8 locale
+    # macOS awk exited 2 at a latin1 byte in the log, the count came back
+    # empty, and an empty run sealed green with this refusal skipped. The log
+    # is read as bytes now, and a counter that fails all the same is devbin's
+    # own counting failing: the run is unverified, so it is promoted and says
+    # why. --allow-empty does not cover it: it accepts a count of zero, not a
+    # count devbin could not read. The reason carries awk's own first line,
+    # read by running the counter once more for its stderr alone, so a
+    # passing count costs one read of the log.
+    executed="$(log_awk "$counter" "$log" 2>/dev/null)" || count_rc=$?
+    if [ "$count_rc" -ne 0 ]; then
+      count_why="$(log_awk "$counter" "$log" 2>&1 >/dev/null)" || true
+      count_why="${count_why%%$'\n'*}"
+      note_promotion "$log" "${label:-$suffix}" \
+        "the executed-test count could not be read (awk exited $count_rc on $log${count_why:+: $count_why}), so nothing says a test ran"
+      rc=1
+    elif [ -n "$executed" ] && [ "$executed" -eq 0 ] 2>/dev/null; then
       if [ "$allow_empty" = 1 ]; then
         printf '%sno tests ran (--allow-empty)%s\n' "${dim:-}" "${reset:-}"
       else
-        # Two escape routes for two kinds of intent: --allow-empty says THIS
+        # An escape route for each kind of intent: --allow-empty says THIS
         # run's emptiness is expected (a wrapper flag gate_split_args carries
         # from any gate's command line -- before that split existed, advising
-        # it sent users to their own tool's unknown-argument error: delta
-        # review, finding 6); `grammar: generic` says this gate is never a
-        # counted run at all.
+        # it sent users to their own tool's unknown-argument error);
+        # `grammar: generic` says this gate is never a counted run at all.
         note_promotion "$log" "${label:-$suffix}" \
           "0 tests executed -- check the filter (if intended: pass --allow-empty, or declare 'grammar: generic' on this option in config)"
         rc=1
@@ -2020,10 +2443,14 @@ run_gate() {
   # BEFORE THE SEAL, deliberately, and that ordering IS the fix for issue 0046.
   # write_errors_file is about to read this log; everything printed after this
   # point goes to a terminal or to a parent's tee and never to this run's own
-  # kept artefact.
+  # kept artefact. The commit at close goes first, so the referent stays last.
+  [ -z "$said" ] || note_signal "$log" "$said"
+  note_commit_close "$log"
+  note_end "$log"
   note_referent "$log"
 
   write_errors_file "$rc" "$log" "$errors" "$(grammar_for "$grammar")"
+  [ -z "$said" ] || seal_signal "$errors" "$said"
 
   if [ "$purge" = 1 ]; then
     purge_run_logs "$out_dir" "$suffix" "$log"
@@ -2031,5 +2458,15 @@ run_gate() {
 
   print_run_verdict "$rc" "$keep_log" "$log" "$errors"
   record_seal "$rc" "$label" "$errors"
+  # The caller's handlers back as they were saved, with no default between: a
+  # signal the caller handled takes its handler back, and only one it did not
+  # goes back to the default. Then the signal this run caught is sent to this
+  # process again (above).
+  local s
+  for s in INT TERM HUP PIPE; do
+    case "$traps_were" in *" SIG$s" | *" SIG$s"$'\n'* | *" $s" | *" $s"$'\n'*) ;; *) trap - "$s" ;; esac
+  done
+  [ -z "$traps_were" ] || eval "$traps_were"
+  [ -z "$caught" ] || kill -s "$caught" "$BASHPID"
   return "$rc"
 }

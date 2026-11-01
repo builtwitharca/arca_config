@@ -11,7 +11,7 @@ The project's test gates. Each option devbin ships exits non-zero when it fails 
     shell    shell   bats tests
     all      every active option in one pass
 
-Arguments after one of these options are added to its command line, apart from devbin's own flags: `bin/devbin test mix --trace` runs `mix test --trace`.
+Arguments after one of these options are added to its command line, apart from devbin's own flags: `bin/devbin test mix --trace` runs `mix test --trace`. Each runs at the project root, apart from `rust`, which runs at `project.cargo_root` when the config names one.
 
 ## The verdict is a file
 
@@ -21,7 +21,7 @@ The `.errors` file starts as an in-flight marker and is sealed when the run ends
 
 ## An empty run fails
 
-A run whose output shows it examined nothing (zero tests, or zero source files for credo) is PROMOTED TO FAILED, and the reason is written into the seal: a filter that matches nothing exits 0 and would otherwise read as a pass. Pass `--allow-empty` after the option when an empty run is intended, or declare `grammar: generic` on the option in config to stop the count. `lua` is never promoted, because devbin cannot count its output, and neither is output with no summary line to count.
+A run whose output shows it examined nothing (zero tests, or zero source files for credo) is PROMOTED TO FAILED, and the reason is written into the seal: a filter that matches nothing exits 0 and would otherwise read as a pass. Pass `--allow-empty` after the option when an empty run is intended, or declare `grammar: generic` on the option in config to stop the count. `lua` is never promoted, because devbin cannot count its output, and neither is output with no summary line to count. A run whose count devbin could not read, because its own reading of the output failed, is promoted too, with the failure named, and `--allow-empty` does not cover it.
 
 ## all
 
@@ -39,13 +39,19 @@ In `bin/.devbin/config.yaml`:
             log: true
             grammar: mix
             in_all: false    # runs by name, left out of `all`
+          app:               # a new option, run on macOS alone
+            run: xcodebuild test -scheme App
+            log: true
+            grammar: xcodebuild
+            platforms:       # inactive here on any other host
+              - macos
           mix:               # a new command line; keeps MIX and its grammar
             run: mix test --exclude e2e
           credo:
             enabled: false   # not offered here
 
-A new option is offered whatever the languages, and is sealed only if it declares `log:` (`true`, or a suffix of its own). `grammar:` names the reader that extracts its failures and counts what it ran, one of `mix`, `credo`, `cargo`, `xcodebuild`, `lua`, `shell`, `critic` or `generic`; `generic` is the default, and it and `lua` count nothing. `log: false` beside a `run:` of the option's own runs it unsealed; `log:` alone changes nothing, and `bin/devbin doctor` fails it. A `run:` is split into words and never given to a shell, so quotes, `$`, `;` and redirections are literal. `bin/devbin devbin` names the annotated reference config, which lists every key.
+A new option is offered whatever the languages, and is sealed only if it declares `log:` (`true`, or a suffix of its own). `grammar:` names the reader that extracts its failures and counts what it ran, one of `mix`, `credo`, `cargo`, `xcodebuild`, `lua`, `shell`, `critic` or `generic`; `generic` is the default, and it and `lua` count nothing. `log: false` beside a `run:` of the option's own runs it unsealed; `log:` alone changes nothing, and `bin/devbin doctor` fails it. `platforms:` lists the platform words an option runs on, `macos` or `linux`: on any other host it is inactive here, counted on `all`'s count line and named by `help --why`, never failed. A `run:` is split into words and never given to a shell, so quotes, `$`, `;` and redirections are literal. `bin/devbin devbin` names the annotated reference config, which lists every key.
 
 ## What is active here
 
-Below this page, `bin/devbin help test` prints an "In this project:" block: where the command and each active option resolve from, then the options not offered here and why. `bin/devbin help --why` shows the same for every command. Asking for an option that is not offered here is refused with that reason.
+Where `test` is offered here, `bin/devbin help test` prints an "In this project:" block below this page: where the command and each active option resolve from, then the options not offered here and why. `bin/devbin help --why` shows the same for every command. Asking for an option that is not offered here is refused with that reason.
