@@ -1,0 +1,12 @@
+{
+  "id": "AT-02.5",
+  "kind": "test",
+  "covers": [
+    "AC-02.5"
+  ],
+  "status": "green",
+  "note": "Characterisation rather than red-first, stated plainly: the substance of this AC is removing an unreachable clause and the mock that fabricated a reply to reach it, so the AT holds the real behaviour across the removal rather than failing before it",
+  "legacy": {
+    "raw": "test/config/server_test.exs::\"the :get_config call answers with the config map itself\" (+ the notify_external_change sibling)"
+  }
+}

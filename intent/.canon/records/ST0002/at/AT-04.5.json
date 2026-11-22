@@ -1,0 +1,11 @@
+{
+  "id": "AT-04.5",
+  "kind": "test",
+  "covers": [
+    "AC-04.7"
+  ],
+  "status": "green",
+  "legacy": {
+    "raw": "test/config/cfg_test.exs::\"shell-exported config var beats the checked-in dev default\""
+  }
+}

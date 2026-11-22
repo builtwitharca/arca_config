@@ -1,0 +1,10 @@
+{
+  "id": "AT-02.2",
+  "kind": "test",
+  "file": "test/config/error_dialect_test.exs",
+  "covers": [
+    "AC-02.2"
+  ],
+  "status": "green",
+  "note": "twelve tests, nine red first: the shape from all four entry points, the key path in the error, the cause preserved on load and parse failures, the rendering, and the two shapes that deliberately stay as they are"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "AC-01.5",
+  "text": "A failed env-override application is surfaced (aggregate result from `load_config_phase/0`), not silently dropped",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "AC-05.1",
+  "text": "Every dependency removal carries positive downstream evidence and is proven by the WP-06 arca_cli rebuild; **the default is KEEP**. In-repo non-reference is not grounds for removal (hv ruling on the dependency retraction: unreferenced-here over public surface means untested contract surface, not dead surface). A dep with no downstream evidence either way stays, and gets a note in impl.md rather than a deletion",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

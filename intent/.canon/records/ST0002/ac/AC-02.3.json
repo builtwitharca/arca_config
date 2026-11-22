@@ -1,0 +1,8 @@
+{
+  "id": "AC-02.3",
+  "text": "The facade exposes `delete/1`, `delete!/1`, and a location-inspection API (`get_config_location/0` returning path, file, and source) such that arca_cli's `cli_command_helper.ex:350` call works unmodified",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

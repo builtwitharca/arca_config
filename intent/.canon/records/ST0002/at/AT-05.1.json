@@ -1,0 +1,12 @@
+{
+  "id": "AT-05.1",
+  "kind": "test",
+  "covers": [
+    "AC-05.2"
+  ],
+  "status": "green",
+  "note": "Structural on purpose and stated as such: with the clause gone the old message matches no `handle_info/2` and kills the process, so a behavioural test here would have to assert a crash",
+  "legacy": {
+    "raw": "test/config/production_surface_test.exs::\"the library ships no production modules that answer test-only messages\" (+ the scan-coverage and public-API siblings)"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "AC-04.3",
+  "text": "Location resolution is stable within a session: no file-existence flip between reads and writes",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

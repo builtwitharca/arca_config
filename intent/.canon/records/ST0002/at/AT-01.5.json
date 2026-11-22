@@ -1,0 +1,11 @@
+{
+  "id": "AT-01.5",
+  "kind": "test",
+  "covers": [
+    "AC-01.5"
+  ],
+  "status": "green",
+  "legacy": {
+    "raw": "test/config/phase_based_test.exs::\"failed override surfaces from load_config_phase\""
+  }
+}

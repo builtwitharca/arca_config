@@ -1,0 +1,8 @@
+{
+  "id": "AC-05.6",
+  "text": "The facade module contains delegation and documentation only; CLI/conversion/watch-loop logic lives elsewhere; critic-elixir pass on changed files is clean at severity >= warning",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

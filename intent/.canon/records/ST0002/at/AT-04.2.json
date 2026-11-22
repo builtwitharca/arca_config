@@ -1,0 +1,11 @@
+{
+  "id": "AT-04.2",
+  "kind": "test",
+  "covers": [
+    "AC-04.2"
+  ],
+  "status": "green",
+  "legacy": {
+    "raw": "test/config/cfg_test.exs::\"config_domain deterministic without heuristic\""
+  }
+}

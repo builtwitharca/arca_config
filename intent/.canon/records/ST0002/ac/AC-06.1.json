@@ -1,0 +1,9 @@
+{
+  "id": "AC-06.1",
+  "text": "vc's rebuild of arca_cli against the final arca_config passes its full suite; failures triaged to migration notes or fixed here",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "vc report cited in impl.md"
+  }
+}

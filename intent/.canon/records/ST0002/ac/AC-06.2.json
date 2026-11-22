@@ -1,0 +1,9 @@
+{
+  "id": "AC-06.2",
+  "text": "Migration notes list every breaking change with the replacement API",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "CHANGELOG.md, written 2026-08-04, with a per-area breakdown, before/after error shapes, and an arca_cli section carrying the exact clause its rebuild needs. **Corrected while writing it**: the AC named \"three arca_cli defensive strata now removable (error-prose matcher, Server.delete bypass, get_config_location shim)\" and only the first exists. A grep of arca_cli/lib finds no delete bypass and no location shim"
+  }
+}

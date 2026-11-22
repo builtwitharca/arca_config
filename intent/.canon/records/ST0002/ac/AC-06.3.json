@@ -1,0 +1,9 @@
+{
+  "id": "AC-06.3",
+  "text": "CHANGELOG + version bump per ruling R5 + tag by hv",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "CHANGELOG.md written and version bumped to 0.3.0 in mix.exs and README; annotated tag `v0.3.0` created at hv's instruction 2026-08-04 and pushed to upstream, pointing at `ccd8fb5`"
+  }
+}

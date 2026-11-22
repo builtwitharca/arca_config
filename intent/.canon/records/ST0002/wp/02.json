@@ -1,0 +1,9 @@
+{
+  "id": "02",
+  "title": "One lookup path, one dialect, complete facade",
+  "scope": "S",
+  "status": "done",
+  "objective": "Kill archetype AR-2 (two of everything): one nested get/put/delete/write implementation, one canonical error dialect (ruling R1, coordinated with vc), a complete facade. Findings AF-08..AF-13, AF-16, AF-37 (design.md).",
+  "body": "## Deliverables\n\n- Cfg/Server duplication collapsed to one write path; every write registers exactly one watcher token\n- Canonical missing-key error shape across facade/Server/Cfg-successor/Map; four dialects gone\n- Facade gains delete/1, delete!/1, get_config_location/0 (arca_cli's phantom call becomes real)\n- Access.pop honest per ruling R7; dead {:ok, conf} clause + GenServer-meck test gone\n- LegacyCfg ownership resolved per AF-37\n\n## Dependencies\n\n- WP-01 (truthful returns underneath the unified path); rulings R1, R7; vc agreement on the error shape (arca_cli parses it).",
+  "preamble": ""
+}

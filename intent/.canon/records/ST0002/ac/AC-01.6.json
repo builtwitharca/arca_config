@@ -1,0 +1,8 @@
+{
+  "id": "AC-01.6",
+  "text": "(ruling R4) `switch_config_location/1` to a nonexistent path returns an error and leaves the previous location live; enoent-as-empty-config survives only for the documented first-run bootstrap path",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

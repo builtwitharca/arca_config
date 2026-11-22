@@ -1,0 +1,12 @@
+{
+  "id": "AT-02.3",
+  "kind": "test",
+  "covers": [
+    "AC-02.3"
+  ],
+  "status": "green",
+  "note": "(red-first). Folded into the consumer contract module rather than a separate facade_test.exs: the reason the facade needs these is that a consumer expects them, so the assertion belongs where the consumer contract lives",
+  "legacy": {
+    "raw": "covered by AT-00.1 in test/config/consumer_contract_test.exs::\"the facade exposes the location and delete API its docs promise\""
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "AC-04.1",
+  "text": "(ruling R2) Precedence is ruled, implemented, and documented identically in README and moduledoc, with a single test asserting the full chain end-to-end",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

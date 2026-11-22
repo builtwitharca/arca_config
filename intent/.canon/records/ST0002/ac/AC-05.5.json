@@ -1,0 +1,9 @@
+{
+  "id": "AC-05.5",
+  "text": "Cruft removed from version control",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "`git rm` of four `.arca_config/` artifacts (including a 2024 OAuth config and a probe's `write_test.json`), three March-2025 debug scripts, and `.github/workflows/test.yml`; the commented-out `optimus` hex line; `.arca_config/` added to `.gitignore`. `AGENTS.md.bak` and `.backup/` were already untracked and ignored, so there was nothing to remove from version control (2026-08-04)"
+  }
+}

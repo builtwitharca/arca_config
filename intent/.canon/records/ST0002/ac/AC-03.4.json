@@ -1,0 +1,8 @@
+{
+  "id": "AC-03.4",
+  "text": "The watcher survives malformed JSON: parse failure logs, retains last-good state, keeps watching (no crash-to-dormancy); recovery detects the next valid write",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

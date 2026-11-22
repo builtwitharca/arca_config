@@ -1,0 +1,12 @@
+{
+  "id": "AT-04.4",
+  "kind": "test",
+  "covers": [
+    "AC-04.5"
+  ],
+  "status": "green",
+  "note": "path clarified from `test/support/isolation_check.exs`: ExUnit only runs `*_test.exs` under `test/`, so the drafted path would never have executed -- vc's own reachability lens, applied to my own contract. The comparison helper lives at `test/support/isolation.ex` and the standing guard is in `test/test_helper.exs`",
+  "legacy": {
+    "raw": "**test/isolation_test.exs**::\"suite leaves repo tree and env exactly as found\""
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "AT-05.2",
+  "kind": "test",
+  "file": "test/config/cli_test.exs",
+  "covers": [
+    "AC-05.3"
+  ],
+  "status": "green",
+  "note": "eight tests, every one through `main/1`, so a specification that stopped matching fails them; includes the multi-word `set`, the coercion, and the list-as-chardata fix"
+}

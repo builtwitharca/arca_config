@@ -1,0 +1,8 @@
+{
+  "id": "AC-03.3",
+  "text": "0-arity callbacks fire exactly once per externally-detected change (double-fire eliminated)",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

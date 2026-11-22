@@ -1,0 +1,6 @@
+{
+  "path": "probes/st0002_probe_p3b.exs",
+  "text": "# P3b -- AF-01 executed correctly: pre-existing file pins resolution, then write fails\nscratch = Path.dirname(__ENV__.file)\ndir_b = Path.join(scratch, \"probe_b2_ro\")\nFile.rm_rf!(dir_b)\nFile.mkdir_p!(dir_b)\nfile_b = Path.join(dir_b, \"ro.json\")\nFile.write!(file_b, ~s({\"existing\": true}))\n\nApplication.put_env(:arca_config, :config_domain, :arca_config)\nSystem.put_env(\"ARCA_CONFIG_CONFIG_PATH\", dir_b)\nSystem.put_env(\"ARCA_CONFIG_CONFIG_FILE\", \"ro.json\")\n\nsay = fn tag, val -> IO.puts(\"#{tag}: #{inspect(val)}\") end\n\nsay.(\"P3b.resolved_config_file\", Arca.Config.Cfg.config_file())\n{load_tag, _} = Arca.Config.Server.load_config()\nsay.(\"P3b.load\", load_tag)\n\nFile.chmod!(file_b, 0o444)\nFile.chmod!(dir_b, 0o555)\n\nsay.(\"P3b.put_on_readonly_BUG_if_ok\", Arca.Config.put(\"k\", \"v\"))\n\nFile.chmod!(dir_b, 0o755)\nFile.chmod!(file_b, 0o644)\nsay.(\"P3b.disk_content_after\", File.read!(file_b))\nsay.(\"P3b.get_k_after_failed_write_BUG_if_ok\", Arca.Config.get(\"k\"))\nIO.puts(\"P3B_DONE\")\n",
+  "bytes": 970,
+  "sha256": "cab7ebd3fd734b6d000d2034d4d7de99431e18b63c2063642168cf6d550badc8"
+}

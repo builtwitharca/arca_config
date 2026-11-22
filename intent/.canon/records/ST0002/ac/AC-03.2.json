@@ -1,0 +1,8 @@
+{
+  "id": "AC-03.2",
+  "text": "Per-key subscribers are notified on external file changes (the watcher's reason to exist) and on reload/switch, per the ratified matrix",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

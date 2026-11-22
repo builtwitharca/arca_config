@@ -1,0 +1,11 @@
+{
+  "id": "AT-01.1",
+  "kind": "test",
+  "covers": [
+    "AC-01.1"
+  ],
+  "status": "green",
+  "legacy": {
+    "raw": "test/config/server_test.exs::\"put returns error and preserves state on unwritable location\" (+ the delete twin)"
+  }
+}

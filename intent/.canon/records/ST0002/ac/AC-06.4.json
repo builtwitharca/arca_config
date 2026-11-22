@@ -1,0 +1,9 @@
+{
+  "id": "AC-06.4",
+  "text": "`usage-rules.md` (or successor consumer doc) carries actual arca_config API guidance for consumer LLM sessions",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "rewritten 2026-08-04 (AF-39). It now leads with a consumer DO/NEVER contract"
+  }
+}

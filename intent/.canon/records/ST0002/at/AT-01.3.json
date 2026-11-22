@@ -1,0 +1,11 @@
+{
+  "id": "AT-01.3",
+  "kind": "test",
+  "covers": [
+    "AC-01.3"
+  ],
+  "status": "green",
+  "legacy": {
+    "raw": "test/config/server_test.exs::\"failed load surfaces as load error not key-miss\""
+  }
+}

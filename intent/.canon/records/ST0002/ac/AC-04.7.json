@@ -1,0 +1,8 @@
+{
+  "id": "AC-04.7",
+  "text": "`config/.env` no longer overrides shell-exported config vars during config evaluation: an env var exported by the developer or CI wins over the checked-in dev default, and the resolution path is identical on a fresh clone (which has no `config/.env`)",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

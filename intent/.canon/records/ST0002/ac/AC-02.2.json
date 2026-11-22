@@ -1,0 +1,8 @@
+{
+  "id": "AC-02.2",
+  "text": "(ruling R1) A missing key yields one canonical machine-matchable error shape from every entry point (facade, Server, Cfg-or-successor, Map); the four current dialects are gone",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

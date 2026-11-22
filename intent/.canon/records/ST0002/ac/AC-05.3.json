@@ -1,0 +1,8 @@
+{
+  "id": "AC-05.3",
+  "text": "(ruling R3) The CLI ruling is executed: either a single dispatch path through the Optimus spec in an extracted module, or the escript is removed; no unreachable command spec remains",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

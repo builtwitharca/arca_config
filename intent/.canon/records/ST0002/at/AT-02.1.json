@@ -1,0 +1,12 @@
+{
+  "id": "AT-02.1",
+  "kind": "test",
+  "covers": [
+    "AC-02.1"
+  ],
+  "status": "green",
+  "note": "disk, cache and subscribers move together on every public write -- (red-first). Restated: the AC asked for the watcher write-token to be registered once per path, and WP-03 removed the token mechanism outright, so the AT pins the behaviour the token existed to protect",
+  "legacy": {
+    "raw": "test/config/server_test.exs::\"a write through Cfg has the same effect as a write through Server\" (+ the read sibling)"
+  }
+}

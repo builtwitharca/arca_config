@@ -1,0 +1,8 @@
+{
+  "id": "AC-03.6",
+  "text": "After `put/2` returns, a `get/1` of any ancestor of the written path reflects the write (cache coherence)",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

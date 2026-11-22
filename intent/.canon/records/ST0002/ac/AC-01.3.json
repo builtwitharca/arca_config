@@ -1,0 +1,8 @@
+{
+  "id": "AC-01.3",
+  "text": "A failed initial/on-demand config load surfaces as a load error to the caller, not as \"key not found\" for every key thereafter",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

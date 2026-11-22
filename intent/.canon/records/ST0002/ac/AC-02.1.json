@@ -1,0 +1,8 @@
+{
+  "id": "AC-02.1",
+  "text": "Exactly one nested get/put/delete/write implementation remains; every public write path registers the watcher write-token exactly once (no self-notification fork) -- the token clause is moot: WP-03 removed the token mechanism, so AT-02.1 pins the behaviour it protected",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

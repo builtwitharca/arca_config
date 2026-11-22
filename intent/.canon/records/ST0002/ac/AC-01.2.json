@@ -1,0 +1,8 @@
+{
+  "id": "AC-01.2",
+  "text": "`put!/2` and `delete!/1` raise on persistence failure",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "AT-02.4",
+  "kind": "test",
+  "covers": [
+    "AC-02.4"
+  ],
+  "status": "green",
+  "note": "red-first",
+  "legacy": {
+    "raw": "test/config/map_test.exs::\"pop deletes through the one write path\" (+ missing-key and get_and_update siblings)"
+  }
+}

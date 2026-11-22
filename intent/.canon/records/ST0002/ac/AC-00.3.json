@@ -1,0 +1,9 @@
+{
+  "id": "AC-00.3",
+  "text": "Every test changed because it asserted a defect is listed in impl.md's changed-tests ledger with before/after behaviour",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "impl.md changed-tests ledger, 10 rows as at 2026-08-04, covering WP-01 (7), WP-02 (3) and WP-05 (2); re-checked at ST close because AC-02.2 will add rows"
+  }
+}

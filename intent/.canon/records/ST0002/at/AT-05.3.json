@@ -1,0 +1,10 @@
+{
+  "id": "AT-05.3",
+  "kind": "test",
+  "file": "test/deps_audit_test.exs",
+  "covers": [
+    "AC-05.1"
+  ],
+  "status": "green",
+  "note": "the inference hv overruled, encoded as CI, and in direct contradiction of AC-05.1 as rewritten. It now names all thirteen dependencies with the reason each is kept and fails when one is added or removed without saying which -- **restated**. As drafted it asserted declared == referenced, which would fail the build for any dependency with no in-repo call site"
+}

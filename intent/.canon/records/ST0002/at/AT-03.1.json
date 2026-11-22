@@ -1,0 +1,14 @@
+{
+  "id": "AT-03.1",
+  "kind": "test",
+  "covers": [
+    "AC-03.1",
+    "AC-03.2",
+    "AC-03.3"
+  ],
+  "status": "green",
+  "note": "with nine siblings in the same module walking reload, external detect and switch, the ancestor-replacement case, the unchanged-value cases, and the two re-entrancy pins",
+  "legacy": {
+    "raw": "test/config/notification_matrix_test.exs::\"matrix: each channel fires once per covered path\""
+  }
+}

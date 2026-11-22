@@ -1,0 +1,9 @@
+{
+  "id": "AC-04.4",
+  "text": "README matches behaviour: precedence order, actual default paths (CWD-relative or ruled otherwise), `.env` section corrected to project-local scope, one version string",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "README diff reviewed against AC-04.1 test; precedence table now matches `Cfg`'s moduledoc and the test line for line, the location story says CWD-relative, the `.env` section says plainly that it is this repo's own dev setup and not a library feature, and the version lives only in mix.exs (`config.exs`'s copy removed, the CLI spec reads `Application.spec/2`, README's two install blocks reconciled)"
+  }
+}

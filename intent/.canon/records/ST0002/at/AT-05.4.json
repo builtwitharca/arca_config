@@ -1,0 +1,12 @@
+{
+  "id": "AT-05.4",
+  "kind": "test",
+  "covers": [
+    "AC-05.6"
+  ],
+  "status": "green",
+  "note": "Run 2026-08-04 at hv's instruction: 9 critical + 12 warning, all 21 closed, including a Protocol.UndefinedError that AC-02.2 had shipped an hour earlier on every error path. Four of the criticals were findings the Fable audit missed (C1 data loss on the write path, C3, C4, C5). Detail in impl.md; ten further ledger rows. The structural half of AC-05.6 is green in test/config/production_surface_test.exs::\"the facade holds no CLI, conversion or watch-loop logic\"",
+  "legacy": {
+    "raw": "(gate) critic-elixir clean at >= warning on changed files"
+  }
+}

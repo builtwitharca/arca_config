@@ -1,0 +1,9 @@
+{
+  "id": "AC-04.6",
+  "text": "Each remaining `async: false` carries a reason comment, or the module is `async: true`",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "grep over test/"
+  }
+}

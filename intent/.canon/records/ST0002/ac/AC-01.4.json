@@ -1,0 +1,8 @@
+{
+  "id": "AC-01.4",
+  "text": "Cache API clauses that fabricate success when the cache is unavailable are removed; cache unavailability is an honest failure distinct from key-miss",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

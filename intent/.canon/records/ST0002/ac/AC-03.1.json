@@ -1,0 +1,8 @@
+{
+  "id": "AC-03.1",
+  "text": "A ratified notification matrix (channels x mutation paths) is implemented: each channel fires exactly once per mutation event on every path it covers, and the covered set is documented on `subscribe/1`, `register_change_callback/2`, and `add_callback/1`",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "AC-03.5",
+  "text": "An external edit landing inside the post-write suppression window is not lost (token identity compared, or equivalent re-check)",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

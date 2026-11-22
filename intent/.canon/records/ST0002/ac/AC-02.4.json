@@ -1,0 +1,8 @@
+{
+  "id": "AC-02.4",
+  "text": "(ruling R7) `Access.pop/2` and `get_and_update/3`'s `:pop` actually delete through the one write path, or the Access implementation is removed",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

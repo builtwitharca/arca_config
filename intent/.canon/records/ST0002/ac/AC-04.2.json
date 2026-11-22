@@ -1,0 +1,8 @@
+{
+  "id": "AC-04.2",
+  "text": "`config_domain/0` is deterministic: explicit configuration or a documented stable default; the started-applications heuristic (probe P1: `:elixir_uuid`) is removed",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

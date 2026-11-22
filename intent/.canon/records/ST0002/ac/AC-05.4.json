@@ -1,0 +1,9 @@
+{
+  "id": "AC-05.4",
+  "text": "One CI workflow, matrix per ruling R6",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "`test.yml` deleted, `ci.yml` rewritten as one matrix (1.18.0/OTP 27, 1.18.4/OTP 28, 1.20.2/OTP 29 per R6), and both workflows' `ARCA_CONFIG_CONFIG_PATH: .arca_config` removed (2026-08-04; green run pending the next push, which is hv's to observe)"
+  }
+}

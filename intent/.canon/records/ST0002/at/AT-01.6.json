@@ -1,0 +1,11 @@
+{
+  "id": "AT-01.6",
+  "kind": "test",
+  "covers": [
+    "AC-01.6"
+  ],
+  "status": "green",
+  "legacy": {
+    "raw": "test/config/switch_location_test.exs::\"switch to nonexistent path errors and preserves location\""
+  }
+}

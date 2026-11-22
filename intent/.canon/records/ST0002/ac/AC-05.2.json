@@ -1,0 +1,8 @@
+{
+  "id": "AC-05.2",
+  "text": "Test backdoors (`{:reset_for_test, ...}`, `{:reset_to_dormant, ...}`) are out of production modules, with equivalent test control via supervised lifecycle",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "AC-01.1",
+  "text": "`put/2` and `delete/1` return `{:error, _}` when persistence fails, and neither server state nor cache advances past the failed write (a subsequent `get` reflects disk, not the phantom value)",
+  "kind": "test",
+  "state": {
+    "is": "computed"
+  }
+}

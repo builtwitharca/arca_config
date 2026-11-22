@@ -1,0 +1,9 @@
+{
+  "id": "04",
+  "title": "Location model: precedence, domain, isolation",
+  "scope": "S",
+  "status": "done",
+  "objective": "Kill archetype AR-4 (location is ambient guesswork): ruled precedence documented once and tested end-to-end, deterministic domain, stable resolution, a suite that leaves the world exactly as it found it. Findings AF-23..AF-31 (design.md).",
+  "body": "## Deliverables\n\n- Precedence per ruling R2; README rewritten (inverted precedence, false home-dir story, .env scope, one version string)\n- config_domain deterministic; started-applications heuristic (probe P1 -> :elixir_uuid) removed\n- No file-existence flip in resolution\n- Suite isolation: no repo-root/parent/HOME writes, exact env restore, doctests clean up, git status clean after mix test\n- async: false justified per module or lifted\n\n## Dependencies\n\n- Ruling R2. Independent of WP-02/03 except shared files; sequence after WP-03 to avoid churn.",
+  "preamble": ""
+}

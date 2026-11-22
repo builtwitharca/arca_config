@@ -1,0 +1,9 @@
+{
+  "id": "AC-00.2",
+  "text": "arca_cli rebuilt against the final arca_config (mix.lock advanced from 8b30615) and its full suite passes, executed by vc",
+  "kind": "non-test",
+  "state": {
+    "is": "satisfied",
+    "evidence": "vc report at `intent/st/ST0002/vc-rebuild-report.md`"
+  }
+}
