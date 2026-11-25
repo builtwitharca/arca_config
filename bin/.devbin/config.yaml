@@ -115,7 +115,6 @@ commands:
         summary: ExUnit, at CI's strictness
         run: mix test --warnings-as-errors
         grammar: mix
-        log: MIX
 
   docs:
     options:
